@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"github.com/gocolly/colly"
 	"github.com/gocolly/colly/extensions"
@@ -53,7 +54,34 @@ func videoDLWorker(destFile string, target string) error {
 	return nil
 }
 
+const usageString string = `Usage:
+	crawlerTea [flags] 
+	
+	Download a video from URL.
+	Example: crawlerTea -i https://down.icharle.com/?/Go语言实战流媒体视频网站/ -i ./GolangMedia
+Flags:`
+
 func main() {
+	flag.Usage = func() {
+		fmt.Println(usageString)
+		flag.PrintDefaults()
+	}
+	var outputDir string
+	var tmpDir string
+	var targetUrl string
+
+	currentDir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	flag.StringVar(&outputDir, "d", currentDir, "The output directory.")
+	flag.StringVar(&targetUrl, "i", "", "Target URL")
+	flag.Parse()
+	log.Println(flag.Args())
+
+	fmt.Println("outputDir:", outputDir)
+
 	c := colly.NewCollector()
 	c.Limit(&colly.LimitRule{DomainGlob: "*.down.icharle.*", Parallelism: 3})
 	extensions.RandomUserAgent(c)
@@ -62,14 +90,20 @@ func main() {
 	c.OnHTML(".mdui-row > ul > li", func(e *colly.HTMLElement) {
 
 		name := e.DOM.Find("span").Text()
+		name = strings.Replace(name, " ", "", -1)
+		if name != "" {
+			fmt.Printf("%s\n", name)
+			link := e.ChildAttr("a", "href")
+			linkURL := fmt.Sprintf("%s://%s%s", e.Request.URL.Scheme, e.Request.URL.Hostname(), link)
+			tmpDir = filepath.Join(outputDir, name)
 
-		fmt.Println("name : ", name)
-		link := e.ChildAttr("a", "href")
-		linkURL := fmt.Sprintf("%s://%s%s", e.Request.URL.Scheme, e.Request.URL.Hostname(), link)
-		fmt.Println("link : ", linkURL)
-		if link != "" {
-			detailLink.Visit(linkURL)
+			//fmt.Println("tmpDir :", tmpDir)
+			//fmt.Println("link :", linkURL)
+			if link != "" {
+				detailLink.Visit(linkURL)
+			}
 		}
+
 	})
 
 	detailLink.OnHTML(".mdui-row > ul > li > a", func(e *colly.HTMLElement) {
@@ -77,16 +111,16 @@ func main() {
 		name := e.ChildText("span")
 
 		if strings.HasSuffix(link, ".mp4") {
-			fmt.Println("name:", name)
+			fmt.Printf("\t%s\n", name)
 			downLoadURL := fmt.Sprintf("%s://%s%s", e.Request.URL.Scheme, e.Request.URL.Hostname(), link)
-			fmt.Println("link :", downLoadURL)
-			err := videoDLWorker(name, downLoadURL)
+			//fmt.Println("link :", downLoadURL)
+			err := videoDLWorker(filepath.Join(tmpDir, name), downLoadURL)
 			if err != nil {
 				log.Println(err)
 			}
 		}
 	})
 
-	c.Visit("https://down.icharle.com/?/Go%E8%AF%AD%E8%A8%80%E5%AE%9E%E6%88%98%E6%B5%81%E5%AA%92%E4%BD%93%E8%A7%86%E9%A2%91%E7%BD%91%E7%AB%99/")
+	c.Visit(targetUrl)
 
 }
