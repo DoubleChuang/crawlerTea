@@ -4,14 +4,16 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/gocolly/colly"
-	"github.com/gocolly/colly/extensions"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"github.com/gocolly/colly"
+	"github.com/gocolly/colly/extensions"
 )
 
 func fileExists(filename string) bool {
@@ -22,6 +24,8 @@ func fileExists(filename string) bool {
 	return !info.IsDir()
 }
 func videoDLWorker(destFile string, target string) error {
+	var retry uint32
+BEGIN:
 	resp, err := http.Get(target)
 	if err != nil {
 		log.Println(fmt.Sprintf("Http.Get\nerror: %s\ntarget: %s\n", err, target))
@@ -30,6 +34,12 @@ func videoDLWorker(destFile string, target string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
+		if resp.StatusCode == 503 && retry < 3 {
+			retry++
+			log.Println("Reconnect", retry, "time", destFile)
+			time.Sleep(5 * time.Second)
+			goto BEGIN
+		}
 		log.Println(fmt.Sprintf("reading answer: non 200[code=%v] status code received: '%v'",
 			resp.StatusCode, err))
 		return errors.New("non 200 status code received")
