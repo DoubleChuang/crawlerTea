@@ -58,7 +58,7 @@ const usageString string = `Usage:
 	crawlerTea [flags] 
 	
 	Download a video from URL.
-	Example: crawlerTea -i https://down.icharle.com/?/Go语言实战流媒体视频网站/ -i ./GolangMedia
+	Example: crawlerTea -i https://down.icharle.com/?/Go语言实战流媒体视频网站/ -d ./GolangMedia
 Flags:`
 
 func main() {
